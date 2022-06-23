@@ -24,6 +24,7 @@ inputsData <- purrr::pmap(vars, myInput)
 
 
 #model functions
+#clean up parameters to function
 Predicted.Performance=function(params,Training.Load,day=length(Training.Load)){
   p_0=params[1]; k_1=params[2]; k_2=params[3]; tau_1=params[4]; tau_2=params[5]
   out=c(); sum_1=0; sum_2=0
@@ -47,42 +48,87 @@ SSE=function(params,Training.Load,Performance,day=length(Training.Load)){
   return(SSE)
 }
 
+optim_par=function(v,Training.Load,Performance,day=length(Performance)){
+  x=optim(par = v,  
+          fn = SSE, Training.Load = Training.Load, 
+          Performance = Performance,
+          day=day)
+  return(x$par)
+}
 
+
+
+
+fluidPage(
+  tabsetPanel(
+    tabPanel("Import data", 
+             fileInput("file", "Data", buttonLabel = "Upload..."),
+             textInput("delim", "Delimiter (leave blank to guess)", ""),
+             numericInput("skip", "Rows to skip", 0, min = 0),
+             numericInput("rows", "Rows to preview", 10, min = 1)
+    ),
+    tabPanel("Set parameters"),
+    tabPanel("Visualise results")
+  )
+)
 
 #appUI
 ui=fluidPage(
-  #choosing dataset and appropriate variables
-  column(3,
-    fileInput("file", "Choose CSV file:",
-              multiple=TRUE,
-              accept = c("text/csv",
-                         "text/comma-separated-values,text/plain",
-                         ".csv")),
-    actionButton("updateData","Update"),
-    inputsData
-  ),
+  tabsetPanel(
+    id="wizard",
+    type="hidden",
     
-  #to get parameters
-  column(3,
-    actionButton("updateParameters", "Update Parameters"),
-    inputParams
-  ),
-  
-  #plotting model
-  column(6,
-    plotOutput("plot")
-  ),
-  
-  #to see what's up
-  tableOutput("Preview"),
-  verbatimTextOutput("out")
+    #choosing dataset 
+    tabPanel("page_1",
+      column(3,
+        fileInput("file", "Choose CSV file:",
+                  multiple=TRUE,
+                  accept = c("text/csv",
+                             "text/comma-separated-values,text/plain",
+                             ".csv")),
+        actionButton("page_12", "Set Inputs"),
+      )
+    ),
+    
+    #Choosing Data and parameters
+    tabPanel("page_2",
+      column(3,
+             actionButton("page_21", "Change Data"),
+             inputsData
+      ),
+      
+      column(2,
+        actionButton("graph", "Graph!!"),
+        inputParams
+      ),
+      
+      #Plot
+      column(7,plotOutput("plot"))
+    ),
+      
+      
+    #plotting model
+        
+      
+      #to see what's up
+      # tableOutput("Preview"),
+      # verbatimTextOutput("out")
+    
+  )
 )
 
 
 #appServer
 server=function(input,output,session){
   
-  df <- eventReactive(input$updateData,{
+  switch_page <- function(i) {
+    updateTabsetPanel(inputId = "wizard", selected = paste0("page_", i))
+  }
+  
+  observeEvent(input$page_12, switch_page(2))
+  observeEvent(input$page_21, switch_page(1))
+  
+  df <- eventReactive(input$page_12,{
     req(input$file)
     out=read.csv(input$file$datapath)
     names=names(out)
@@ -93,14 +139,12 @@ server=function(input,output,session){
     out
   })
   
-  output$Preview=renderTable(head(df()))
+  #output$Preview=renderTable(head(df()))
   
-  parameters=eventReactive(input$updateParameters,{
-    tmp=c(as.double(input$p_0),as.double(input$k_1),as.double(input$k_2),
-          as.double(input$tau_1),as.double(input$tau_2))
-    # tmp=purrr::map(tmp,as.double)
-    # tmp=as.vector(tmp)
-    # tmp
+  parameters=eventReactive(input$graph,{
+    tmp=c(input$p_0,input$k_1,input$k_2,
+          input$tau_1,input$tau_2)
+    tmp=purrr::map_dbl(tmp,as.double)
     tmp
   })
   
@@ -108,7 +152,7 @@ server=function(input,output,session){
     Predicted.Performance(parameters(),df()[[input$trainingLoad]])
     })
   #for testing 
-  output$out=renderPrint(Pred_Perf())
+  #output$out=renderPrint(Pred_Perf())
   
   output$plot=renderPlot({
     ggplot(df(),aes(x=df()[[input$days]],y=Pred_Perf()))+
@@ -120,7 +164,7 @@ server=function(input,output,session){
   })
 }
  
-
+?updateSelectInput
 shinyApp(ui,server)
 
 
