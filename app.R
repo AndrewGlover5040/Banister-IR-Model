@@ -176,7 +176,9 @@ server=function(input,output,session){
       geom_point(aes(y = df()[[input$performance]], color="red"), shape = 1)+
       scale_color_manual("", values = c("black", "red"),
                          labels = c("Predicted Performance",
-                                    "Actual Performance"))
+                                    "Actual Performance"))+
+      labs(x="Days", y="Performance")
+      
   })
 
   output$plot <- renderPlot({
