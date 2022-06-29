@@ -121,6 +121,7 @@ ui=fluidPage(
       column(7,
              actionButton("graph", "Graph!!"),
              plotOutput("plotMain"),
+             plotOutput("plotTrainingLoad"),
              plotOutput("plotInfluence")
              )
     ),
@@ -137,6 +138,7 @@ ui=fluidPage(
 #appServer
 server=function(input,output,session){
   
+  #page wizard
   output$nextPage <- renderUI({
     req(input$file)
     actionButton("page_12", "Change Inputs")
@@ -149,6 +151,8 @@ server=function(input,output,session){
   observeEvent(input$page_12, switch_page(2))
   observeEvent(input$page_21, switch_page(1))
   
+  
+  #reading dataset 
   df <- eventReactive(input$file,{
     req(input$file)
     out=read.csv(input$file$datapath)
@@ -178,6 +182,10 @@ server=function(input,output,session){
     predictedPerformance(input_Params(),df()[[input$trainingLoad]])
   })
   
+  days <- reactive({
+    df()[[input$days]]
+  })
+  
   #for testing 
   #output$out=renderPrint(Pred_Perf())
   
@@ -196,8 +204,10 @@ server=function(input,output,session){
   })
   
   
+  
+  #Main Plot
   plotMain <- eventReactive(input$graph, {
-    ggplot(df(),aes(x=df()[[input$days]],y=pred_perf()))+
+    ggplot(df(),aes(x=days(),y=pred_perf()))+
       geom_line(aes(y=pred_perf(),colour="black"), size=1)+
       geom_point(aes(y = df()[[input$performance]], color="red"), shape = 1)+
       scale_color_manual("", values = c("black", "red"),
@@ -211,20 +221,32 @@ server=function(input,output,session){
     plotMain()
   })
   
-  df_influ=reactive({
-    out=data.frame(rev(-1*df()[[input$days]]),
-               Influence(input_Params(),-length(df()[[input$days]]))
+  
+  
+  #influence plot
+  df_influ <- reactive({
+    out=data.frame(rev(-1*days()),
+               Influence(input_Params(),-length(days()))
                )
   })
   
-  plotInflu=eventReactive(input$graph,{
+  plotInflu <- eventReactive(input$graph,{
     ggplot(df_influ(),aes(df_influ()[[1]],df_influ()[[2]]))+
       geom_line()+
       labs(x="Days",y="Influence")
   })
   
-  output$plotInfluence=renderPlot({plotInflu()})
+  output$plotInfluence <- renderPlot({plotInflu()})
   
+  
+  #training load plot
+  plotTrain <- eventReactive(input$graph,{
+    ggplot(df(),aes(days(),df()[[input$trainingLoad]]))+
+      geom_bar(stat = "identity")+
+      labs(x="Days",y="Training Load")
+  })
+  
+  output$plotTrainingLoad=renderPlot(plotTrain())
 }
 
 
