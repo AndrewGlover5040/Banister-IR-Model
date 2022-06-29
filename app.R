@@ -60,6 +60,32 @@ optim_par <- function(v,Training.Load,Performance,day=length(Performance)){
 }
 
 
+#Influence Functions
+
+#could be computing the wrong days
+Influence=function(params,startDay,t_p=0){
+  k_1=params[2]; k_2=params[3]; tau_1=params[4]; tau_2=params[5]
+  out=c(rep(0,(t_p-startDay)))
+  n=t_p-startDay
+  for(i in 1:n){
+    out[i]=k_1*exp(-(n-i)/tau_1)-k_2*exp(-(n-i)/tau_2)
+  }
+  return(out)
+}
+
+get_t_n=function(params){
+  k_1=params[2]; k_2=params[3]; tau_1=params[4]; tau_2=params[5]
+  t_g=(tau_1*tau_2)/(tau_1-tau_2)*log(k_2/k_1)
+}
+
+get_t_g=function(params){
+  k_1=params[2]; k_2=params[3]; tau_1=params[4]; tau_2=params[5]
+  t_g=(tau_1*tau_2)/(tau_1-tau_2)*log((k_2*tau_1)/(k_1*tau_2))
+  return(t_g)
+}
+
+
+
 #appUI
 ui=fluidPage(
   tabsetPanel(
@@ -94,7 +120,8 @@ ui=fluidPage(
     
       column(7,
              actionButton("graph", "Graph!!"),
-             plotOutput("plot")
+             plotOutput("plotMain"),
+             plotOutput("plotInfluence")
              )
     ),
       
@@ -166,11 +193,10 @@ server=function(input,output,session){
     tmp=optim_par(input_Params(),df()[[input$trainingLoad]],
                   df()[[input$performance]])
     purrr::map2(params_tmp,tmp,updateInputPar)
-    
   })
   
   
-  plots <- eventReactive(input$graph, {
+  plotMain <- eventReactive(input$graph, {
     ggplot(df(),aes(x=df()[[input$days]],y=pred_perf()))+
       geom_line(aes(y=pred_perf(),colour="black"), size=1)+
       geom_point(aes(y = df()[[input$performance]], color="red"), shape = 1)+
@@ -181,9 +207,24 @@ server=function(input,output,session){
       
   })
 
-  output$plot <- renderPlot({
-    plots()
+  output$plotMain <- renderPlot({
+    plotMain()
   })
+  
+  df_influ=reactive({
+    out=data.frame(rev(-1*df()[[input$days]]),
+               Influence(input_Params(),-length(df()[[input$days]]))
+               )
+  })
+  
+  plotInflu=eventReactive(input$graph,{
+    ggplot(df_influ(),aes(df_influ()[[1]],df_influ()[[2]]))+
+      geom_line()+
+      labs(x="Days",y="Influence")
+  })
+  
+  output$plotInfluence=renderPlot({plotInflu()})
+  
 }
 
 
