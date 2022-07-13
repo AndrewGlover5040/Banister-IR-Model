@@ -1,6 +1,13 @@
 library(shiny)
 library(ggplot2)
 
+#need to do
+#   optionally plot performance
+#   automatically create day column
+#   add 0 to day column if there is no zero day
+
+
+
 
 #cute functional programing stuff
 params_tmp <- c("p_0","k_1","k_2","tau_1","tau_2")
